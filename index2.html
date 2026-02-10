@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Status Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #e2e8f0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2rem;
+            font-weight: 600;
+            color: #f8fafc;
+            letter-spacing: -0.5px;
+        }
+
+        .status-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .status-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .status-card:hover {
+            transform: translateY(-2px);
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .status-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: currentColor;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .status-card.ok::before {
+            background: #10b981;
+            opacity: 1;
+        }
+
+        .status-card.warning::before {
+            background: #f59e0b;
+            opacity: 1;
+        }
+
+        .status-card.error::before {
+            background: #ef4444;
+            opacity: 1;
+        }
+
+        .service-main {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            background: rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .status-card:hover .icon {
+            transform: scale(1.1);
+        }
+
+        .service-details {
+            flex: 1;
+        }
+
+        .service-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .service-type {
+            font-size: 0.875rem;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .ticket-info {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border-left: 3px solid;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .status-card.warning .ticket-info,
+        .status-card.error .ticket-info {
+            display: block;
+        }
+
+        .status-card.warning .ticket-info {
+            border-left-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .status-card.error .ticket-info {
+            border-left-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .ticket-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .ticket-number {
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #f1f5f9;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .ticket-number:hover {
+            color: #60a5fa;
+            transform: translateX(4px);
+        }
+
+        .ticket-number::after {
+            content: '↗';
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        .ticket-desc {
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            margin-top: 6px;
+            line-height: 1.4;
+        }
+
+        .status-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .status-badge.ok {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+
+        .status-badge.warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+
+        .status-badge.error {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+        }
+
+        .pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            position: relative;
+        }
+
+        .pulse::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(3);
+                opacity: 0;
+            }
+        }
+
+        .last-updated {
+            text-align: center;
+            margin-top: 40px;
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            margin-top: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .config-panel {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        .config-panel.active {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        .config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .config-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .config-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr auto;
+            gap: 12px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .config-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .config-input:focus {
+            outline: none;
+            border-color: #60a5fa;
+        }
+
+        .config-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .config-btn:hover {
+            background: #2563eb;
+        }
+
+        .toggle-config {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+
+        .toggle-config:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+        }
+
+        @media (max-width: 640px) {
+            .service-main {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .status-section {
+                align-items: flex-start;
+                width: 100%;
+                flex-direction: row;
+                justify-content: space-between;
+            }
+
+            .config-row {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>System Status</h1>
+        
+        <button class="toggle-config" onclick="toggleConfig()">⚙️ Configure Tickets</button>
+        
+        <div class="config-panel" id="configPanel">
+            <div class="config-header">
+                <span class="config-title">ServiceNow Ticket Configuration</span>
+            </div>
+            <div id="configContent"></div>
+            <button class="config-btn" onclick="saveConfig()" style="margin-top: 12px; width: 100%;">Save Configuration</button>
+        </div>
+
+        <div class="status-grid" id="statusGrid">
+            <!-- Services will be rendered here -->
+        </div>
+
+        <div class="last-updated">
+            <div>Last updated: <span id="timestamp">Just now</span></div>
+            <button class="refresh-btn" onclick="refreshStatus()">Refresh Status</button>
+        </div>
+    </div>
+
+    <script>
+        let services = [
+            {
+                id: 'lan',
+                name: 'LAN',
+                type: 'Local Network',
+                icon: '🌐',
+                status: 'ok',
+                ticket: {
+                    number: 'INC0012345',
+                    type: 'INC',
+                    description: 'Network latency issues in Building A'
+                }
+            },
+            {
+                id: 'wan',
+                name: 'WAN',
+                type: 'Internet Connection',
+                icon: '🌍',
+                status: 'ok',
+                ticket: {
+                    number: 'RITM0023456',
+                    type: 'RITM',
+                    description: 'ISP maintenance scheduled'
+                }
+            },
+            {
+                id: 'zscaler',
+                name: 'Zscaler',
+                type: 'Cloud Security',
+                icon: '🛡️',
+                status: 'ok',
+                ticket: {
+                    number: 'INC0034567',
+                    type: 'INC',
+                    description: 'Authentication service degradation'
+                }
+            },
+            {
+                id: 'o365',
+                name: 'Office 365',
+                type: 'Microsoft Services',
+                icon: '📧',
+                status: 'ok',
+                ticket: {
+                    number: 'RITM0045678',
+                    type: 'RITM',
+                    description: 'Exchange Online performance issues'
+                }
+            },
+            {
+                id: 'wifi',
+                name: 'WiFi',
+                type: 'Wireless Network',
+                icon: '📶',
+                status: 'ok',
+                ticket: {
+                    number: 'INC0056789',
+                    type: 'INC',
+                    description: 'Access point connectivity issues'
+                }
+            },
+            {
+                id: 'voice',
+                name: 'Voice',
+                type: 'Telephony Services',
+                icon: '📞',
+                status: 'ok',
+                ticket: {
+                    number: 'INC0067890',
+                    type: 'INC',
+                    description: 'PBX system outage'
+                }
+            },
+            {
+                id: 'teams',
+                name: 'Teams Video',
+                type: 'Microsoft Teams',
+                icon: '🎥',
+                status: 'ok',
+                ticket: {
+                    number: 'RITM0078901',
+                    type: 'RITM',
+                    description: 'Video conferencing degradation'
+                }
+            },
+            {
+                id: 'outlook',
+                name: 'Outlook',
+                type: 'Email Client',
+                icon: '📨',
+                status: 'ok',
+                ticket: {
+                    number: 'INC0089012',
+                    type: 'INC',
+                    description: 'Email sync issues'
+                }
+            }
+        ];
+
+        const servicenowBaseUrl = 'https://your-instance.service-now.com';
+
+        function renderServices() {
+            const grid = document.getElementById('statusGrid');
+            grid.innerHTML = services.map(service => `
+                <div class="status-card ${service.status}" onclick="toggleStatus('${service.id}')" data-id="${service.id}">
+                    <div class="service-main">
+                        <div class="icon">${service.icon}</div>
+                        <div class="service-details">
+                            <div class="service-name">${service.name}</div>
+                            <div class="service-type">${service.type}</div>
+                            
+                            ${service.status !== 'ok' ? `
+                                <div class="ticket-info">
+                                    <div class="ticket-label">${service.ticket.type === 'INC' ? 'Incident' : 'Request'} Number</div>
+                                    <a href="${servicenowBaseUrl}/nav_to.do?uri=${service.ticket.type.toLowerCase()}_ident.do?sysparm_query=number=${service.ticket.number}" 
+                                       target="_blank" 
+                                       class="ticket-number"
+                                       onclick="event.stopPropagation()">
+                                        ${service.ticket.number}
+                                    </a>
+                                    <div class="ticket-desc">${service.ticket.description}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="status-section">
+                        <div class="status-badge ${service.status}">
+                            <div class="pulse"></div>
+                            <span>${service.status === 'ok' ? 'OK' : service.status === 'warning' ? 'DEGRADED' : 'DOWN'}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleStatus(serviceId) {
+            const service = services.find(s => s.id === serviceId);
+            const states = ['ok', 'warning', 'error'];
+            const currentIndex = states.indexOf(service.status);
+            service.status = states[(currentIndex + 1) % states.length];
+            renderServices();
+            updateTimestamp();
+        }
+
+        function updateTimestamp() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('timestamp').textContent = timeString;
+        }
+
+        function refreshStatus() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.textContent = 'Checking...';
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                renderServices();
+                updateTimestamp();
+                btn.textContent = 'Refresh Status';
+                btn.disabled = false;
+            }, 800);
+        }
+
+        function toggleConfig() {
+            const panel = document.getElementById('configPanel');
+            panel.classList.toggle('active');
+            
+            if (panel.classList.contains('active')) {
+                renderConfig();
+            }
+        }
+
+        function renderConfig() {
+            const content = document.getElementById('configContent');
+            content.innerHTML = services.map(service => `
+                <div class="config-row">
+                    <input type="text" class="config-input" value="${service.name}" readonly style="opacity: 0.7;">
+                    <select class="config-input" id="type-${service.id}" onchange="updateTicketType('${service.id}')">
+                        <option value="INC" ${service.ticket.type === 'INC' ? 'selected' : ''}>INC (Incident)</option>
+                        <option value="RITM" ${service.ticket.type === 'RITM' ? 'selected' : ''}>RITM (Request)</option>
+                    </select>
+                    <input type="text" class="config-input" id="ticket-${service.id}" value="${service.ticket.number}" placeholder="Ticket Number">
+                    <input type="text" class="config-input" id="desc-${service.id}" value="${service.ticket.description}" placeholder="Description">
+                </div>
+            `).join('');
+        }
+
+        function updateTicketType(serviceId) {
+            const type = document.getElementById(`type-${serviceId}`).value;
+            const service = services.find(s => s.id === serviceId);
+            service.ticket.type = type;
+        }
+
+        function saveConfig() {
+            services.forEach(service => {
+                service.ticket.number = document.getElementById(`ticket-${service.id}`).value;
+                service.ticket.description = document.getElementById(`desc-${service.id}`).value;
+                service.ticket.type = document.getElementById(`type-${service.id}`).value;
+            });
+            
+            document.getElementById('configPanel').classList.remove('active');
+            renderServices();
+            updateTimestamp();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            renderServices();
+            updateTimestamp();
+        });
+
+        setInterval(() => {
+            updateTimestamp();
+        }, 30000);
+    </script>
+</body>
+</html>
